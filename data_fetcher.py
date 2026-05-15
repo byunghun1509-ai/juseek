@@ -31,13 +31,27 @@ def is_korean(text):
 def is_numeric(text):
     return text.isdigit()
 
+_krx_df = None
+
 def get_krx_ticker(name_or_code):
+    global _krx_df
     if is_numeric(name_or_code):
         # We don't have the exact name, so just use code as name for now, or we can fetch it later
         return name_or_code.zfill(6), name_or_code
     
+    import pandas as pd
+    import os
     try:
-        df = fdr.StockListing('KRX')
+        if _krx_df is None:
+            csv_path = os.path.join(os.path.dirname(__file__), 'krx_tickers.csv')
+            if os.path.exists(csv_path):
+                _krx_df = pd.read_csv(csv_path, dtype={'Code': str})
+            else:
+                import FinanceDataReader as fdr
+                _krx_df = fdr.StockListing('KRX')
+                
+        df = _krx_df
+        
         result = df[df['Name'] == name_or_code]
         if not result.empty:
             return result.iloc[0]['Code'], result.iloc[0]['Name']
@@ -45,7 +59,9 @@ def get_krx_ticker(name_or_code):
         result = df[df['Name'].str.contains(name_or_code, na=False)]
         if not result.empty:
             return result.iloc[0]['Code'], result.iloc[0]['Name']
-    except:
+            
+    except Exception as e:
+        print(f"KRX 종목 목록을 가져오는 중 오류 발생: {e}")
         pass
         
     return None, name_or_code
